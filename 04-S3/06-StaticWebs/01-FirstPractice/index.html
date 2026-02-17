@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS S3 Static Website Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 900px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            padding: 40px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            margin: 40px 0;
+            position: relative;
+        }
+        .image-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .image-box img {
+            max-width: 150px;
+            height: auto;
+            display: block;
+        }
+        .image-label {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .arrow {
+            font-size: 48px;
+            color: #667eea;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+        .description {
+            background: #e7f3ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+            border-left: 4px solid #667eea;
+            text-align: left;
+        }
+        .footer {
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 AWS S3 Static Website</h1>
+        
+        <div class="diagram">
+            <div class="image-box">
+                <img src="01-Images/blue-user-icon-32.jpg" alt="User">
+                <div class="image-label">User</div>
+            </div>
+            
+            <div class="arrow">→</div>
+            
+            <div class="image-box">
+                <img src="01-Images/icon.png" alt="S3 Service">
+                <div class="image-label">S3 Service</div>
+            </div>
+        </div>
+        
+        <div class="description">
+            <h3>⚠️ Public S3 Bucket - Least Secure Configuration</h3>
+            <p>This demo shows the <strong>least secure way</strong> to host content on Amazon S3. The S3 bucket is configured as <strong>public and open to the internet</strong>, allowing anyone to access the objects directly.</p>
+            <p><strong>Security Concerns:</strong></p>
+            <ul>
+                <li>All objects are publicly accessible without authentication</li>
+                <li>No access control or restrictions on who can view the content</li>
+                <li>Direct exposure to the internet increases security risks</li>
+                <li>Not recommended for production or sensitive data</li>
+            </ul>
+            <p><strong>Better Alternative:</strong> Use CloudFront with Origin Access Identity (OAI) to keep the S3 bucket private while still serving content publicly.</p>
+        </div>
+        
+        <div class="footer">
+            AWS CloudChaps Training - S3 Static Website Demo
+        </div>
+    </div>
+</body>
+</html>

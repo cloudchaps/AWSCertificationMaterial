@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS CloudFront Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 1000px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            padding: 40px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+            margin: 40px 0;
+            flex-wrap: wrap;
+        }
+        .image-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .image-box img {
+            max-width: 120px;
+            height: auto;
+            display: block;
+        }
+        .image-label {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .arrow {
+            font-size: 48px;
+            color: #667eea;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+        .description {
+            background: #e7f3ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+            border-left: 4px solid #667eea;
+            text-align: left;
+        }
+        .description h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .footer {
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>☁️ AWS CloudFront Distribution Demo</h1>
+        
+        <div class="diagram">
+            <div class="image-box">
+                <img src="01-Images/blue-user-icon-32.jpg" alt="User">
+                <div class="image-label">User</div>
+            </div>
+            
+            <div class="arrow">→</div>
+            
+            <div class="image-box">
+                <img src="01-Images/CloudFrontLogo.png" alt="CloudFront">
+                <div class="image-label">CloudFront</div>
+            </div>
+            
+            <div class="arrow">→</div>
+            
+            <div class="image-box">
+                <img src="01-Images/icon.png" alt="S3 Bucket">
+                <div class="image-label">S3 Bucket</div>
+            </div>
+        </div>
+        
+        <div class="description">
+            <h3>📊 CloudFront Architecture</h3>
+            <p>This diagram demonstrates how <strong>Amazon CloudFront</strong> allows public traffic to access private objects stored in an S3 bucket.</p>
+            <p><strong>How it works:</strong></p>
+            <ul>
+                <li><strong>User</strong> requests content from the CloudFront distribution URL</li>
+                <li><strong>CloudFront</strong> acts as a CDN (Content Delivery Network) and caches content at edge locations</li>
+                <li><strong>S3 Bucket</strong> remains private, with CloudFront using Origin Access Identity (OAI) to securely access objects</li>
+            </ul>
+            <p>This architecture provides security, performance, and global content delivery without exposing the S3 bucket publicly.</p>
+        </div>
+        
+        <div class="footer">
+            AWS CloudChaps Training - CloudFront & S3 Demo
+        </div>
+    </div>
+</body>
+</html>

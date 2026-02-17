@@ -1,0 +1,49 @@
+---
+version: "3"
+env:
+  ### AWS Variables
+  AWS_VPC_ID: "vpc-0e445e8482559fb54"
+  AWS_EC2_MANUAL_INSTANCE: "cloudchaps-manual-001"
+  AWS_SECURITYGROUP_NM: "CloudChapsSecurityGroup"
+  AWS_EC2_AZ: "us-east-1b"
+  AWS_EC2_AZS_COPY: "us-east-1c us-east-1d us-east-1e"
+  AWS_EFS_DEVICE_NM: "CloudChapsEFSDevice"
+  
+
+tasks:
+####### GENERATE AWS EC2 INSTANCES #######
+  AWS:01-EBS-Snapshot-Practice:
+    desc: Launch EC2 Instances for this course section
+    cmds: 
+      - cmd: |
+          gum style "$(cat <<EOF
+          🚨🚨🚨 NOTE: Exposing such credentials or store them in any control version system platform is extremly risky and can lead to potential 
+          monetary charges in your cloud platform due to the credentials being used for any kind of tasks in your account.
+          (Make sure you run the task AWS:03-delete-aws-resources to delete all the resources in this task list after you finish using it.) 🚨🚨🚨
+          EOF
+          )"
+        silent: true
+      - ./01-Scripts/01-EBSSnapshot.sh "${AWS_VPC_ID}" "${AWS_EC2_MANUAL_INSTANCE}" "${AWS_EC2_AZ}" "${AWS_SECURITYGROUP_NM}" ${AWS_EC2_AZS_COPY}
+
+  AWS:02-EFS-Practice:
+    desc: Launch EC2 Instances for this course section
+    cmds: 
+      - cmd: |
+          gum style "$(cat <<EOF
+          🚨🚨🚨 NOTE: Exposing such credentials or store them in any control version system platform is extremly risky and can lead to potential 
+          monetary charges in your cloud platform due to the credentials being used for any kind of tasks in your account.
+          (Make sure you run the task AWS:03-delete-aws-resources to delete all the resources in this task list after you finish using it.) 🚨🚨🚨
+          EOF
+          )"
+        silent: true
+      - ./01-Scripts/03-EFSPractice.sh "${AWS_VPC_ID}" "${AWS_EC2_MANUAL_INSTANCE}" "${AWS_EC2_AZ}" "${AWS_SECURITYGROUP_NM}" "${AWS_EFS_DEVICE_NM}" ${AWS_EC2_AZS_COPY}
+  
+  AWS:04-delete-EBS-Components:
+    desc: Delete EBS Components
+    cmds: 
+      - ./01-Scripts/02-DeleteEBSComponents.sh "${AWS_VPC_ID}" "${AWS_EC2_MANUAL_INSTANCE}" "${AWS_SECURITYGROUP_NM}" ${AWS_EC2_AZS_COPY}
+  
+  AWS:05-delete-EFS-Components:
+    desc: Delete EFS Components
+    cmds: 
+      - ./01-Scripts/04-DeleteEFSComponents.sh "${AWS_VPC_ID}" "${AWS_EC2_MANUAL_INSTANCE}" "${AWS_SECURITYGROUP_NM}" ${AWS_EC2_AZS_COPY}

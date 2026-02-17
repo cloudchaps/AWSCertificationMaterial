@@ -1,0 +1,91 @@
+---
+version: "3"
+env:
+  ### AWS Variables
+  AWS_VPC_ID: "vpc-0e445e8482559fb54"
+  AWS_SECURITYGROUP_NM_1: "CloudChapsSecurityGroup"
+  AWS_SECURITYGROUP_DESC_1: "Manually managed instances security group example"
+  AWS_SECURITYGROUP_NM_2: "CloudChapsLoadBalancedSecurityGroup"
+  AWS_SECURITYGROUP_DESC_2: "Load Balanced instances security group example"
+  AWS_SECURITYGROUP_NM_3: "CloudChapsAutoScalingGroup"
+  AWS_EC2_MANUAL_INSTANCES: "cloudchaps-manual-001"
+  AWS_EC2_DEBUG_INSTANCES: "cloudchaps-balanced-001 cloudchaps-balanced-002 cloudchaps-balanced-003"
+  AWS_TARGET_GROUP_NM: "awsManualTargetGroup"
+  AWS_LOAD_BALANCER_NM: "awsManualLoadBalancer"
+  AWS_STACK_NAME: "CloudChapsLoadBalancedStack"
+  AWS_LAUNCH_TEMPLATE: "CloudChapsLaunchTemplate"
+  AUTOSCALING_GROUP_NAME: "CloudChapsAutoScalingGroup"
+
+tasks:
+####### GENERATE AWS EC2 INSTANCES #######
+  AWS:01-launch-ec2-instance:
+    desc: Launch EC2 Instances for this course section
+    cmds: 
+      - cmd: |
+          gum style "$(cat <<EOF
+          🚨🚨🚨 NOTE: Exposing such credentials or store them in any control version system platform is extremly risky and can lead to potential 
+          monetary charges in your cloud platform due to the credentials being used for any kind of tasks in your account.
+          (Make sure you run the task AWS:03-delete-aws-resources to delete all the resources in this task list after you finish using it.) 🚨🚨🚨
+          EOF
+          )"
+        silent: true
+      - aws ec2 create-security-group --group-name "${AWS_SECURITYGROUP_NM_1}" --description "${AWS_SECURITYGROUP_DESC_1}" --vpc-id "${AWS_VPC_ID}"
+      - aws ec2 authorize-security-group-ingress --group-name "${AWS_SECURITYGROUP_NM_1}" --ip-permissions '{"IpProtocol":"tcp","FromPort":22,"ToPort":22,"IpRanges":[{"CidrIp":"0.0.0.0/0"}]}' '{"IpProtocol":"tcp","FromPort":80,"ToPort":80,"IpRanges":[{"CidrIp":"0.0.0.0/0"}]}' >> ~/tmp/gcloudlogs.md
+      - sleep 20
+      - ./01-Scripts/01-CreateInstances.sh "${AWS_SECURITYGROUP_NM_1}" "${AWS_VPC_ID}" ${AWS_EC2_MANUAL_INSTANCES} 
+  
+  AWS:02-launch-ec2-load-balance:
+    desc: Launch EC2 Instances for this course section
+    cmds: 
+      - cmd: |
+          gum style "$(cat <<EOF
+          🚨🚨🚨 NOTE: Exposing such credentials or store them in any control version system platform is extremly risky and can lead to potential 
+          monetary charges in your cloud platform due to the credentials being used for any kind of tasks in your account.
+          (Make sure you run the task AWS:03-delete-aws-resources to delete all the resources in this task list after you finish using it.) 🚨🚨🚨
+          EOF
+          )"
+        silent: true
+      - aws ec2 create-security-group --group-name "${AWS_SECURITYGROUP_NM_2}" --description "${AWS_SECURITYGROUP_DESC_2}" --vpc-id "${AWS_VPC_ID}"
+      - aws ec2 authorize-security-group-ingress --group-name "${AWS_SECURITYGROUP_NM_2}" --ip-permissions '{"IpProtocol":"tcp","FromPort":22,"ToPort":22,"IpRanges":[{"CidrIp":"0.0.0.0/0"}]}' '{"IpProtocol":"tcp","FromPort":80,"ToPort":80,"IpRanges":[{"CidrIp":"0.0.0.0/0"}]}' >> ~/tmp/gcloudlogs.md
+      - sleep 20
+      - ./01-Scripts/02-CreateInstancnesloadBalancing.sh "${AWS_SECURITYGROUP_NM_2}" "${AWS_TARGET_GROUP_NM}" "${AWS_VPC_ID}" "${AWS_LOAD_BALANCER_NM}" ${AWS_EC2_DEBUG_INSTANCES} 
+
+  AWS:03-launch-ec2-autoscaling-group:
+    desc: Launch EC2 Instances for this course section
+    cmds: 
+      - cmd: |
+          gum style "$(cat <<EOF
+          🚨🚨🚨 NOTE: Exposing such credentials or store them in any control version system platform is extremly risky and can lead to potential 
+          monetary charges in your cloud platform due to the credentials being used for any kind of tasks in your account.
+          (Make sure you run the task AWS:03-delete-aws-resources to delete all the resources in this task list after you finish using it.) 🚨🚨🚨
+          EOF
+          )"
+        silent: true
+      - ./01-Scripts/03-CreateAutoscalingGroup.sh "${AWS_SECURITYGROUP_NM_3}" "${AWS_VPC_ID}" "${AWS_LAUNCH_TEMPLATE}" "${AUTOSCALING_GROUP_NAME}" "${AWS_TARGET_GROUP_NM}" "${AWS_LOAD_BALANCER_NM}" "${AWS_EC2_MANUAL_INSTANCES}"
+
+  AWS:03-launch-cloudFormation-stack:
+    desc: Create cloud formation stack
+    cmds:
+      - aws cloudformation create-stack --stack-name ${AWS_STACK_NAME} --template-body file://./02-CloudFormation/02-MainStack.yaml
+  
+  AWS:03-delete-ec2-resources:
+    desc: delete AWS resources created in this lecture
+    cmds:
+      - ./01-Scripts/02-DeleteInstances.sh ${AWS_EC2_MANUAL_INSTANCES}
+      - sleep 60
+      - aws ec2 delete-security-group --group-name "${AWS_SECURITYGROUP_NM_1}"
+
+  AWS:04-delete-loadbalancer-resources:
+    desc: delete AWS resources created in this lecture
+    cmds:
+      - ./01-Scripts/03-DeleteLoadBalanceInstances.sh "${AWS_SECURITYGROUP_NM_2}" "${AWS_TARGET_GROUP_NM}" "${AWS_VPC_ID}" "${AWS_LOAD_BALANCER_NM}" ${AWS_EC2_DEBUG_INSTANCES}
+  
+  AWS:05-delete-cloudformation-stack:
+    desc: Delete cloud formation stack
+    cmds: 
+      - aws cloudformation delete-stack --stack-name ${AWS_STACK_NAME}
+  
+  AWS:06-delete-autoscaling-group:
+    desc: Delete autoscaling group resources
+    cmds: 
+      - ./01-Scripts/04-DeleteAutoscalingGroup.sh "${AWS_SECURITYGROUP_NM_3}" "${AWS_TARGET_GROUP_NM}" "${AWS_LAUNCH_TEMPLATE}" "${AUTOSCALING_GROUP_NAME}"  "${AWS_LOAD_BALANCER_NM}"
