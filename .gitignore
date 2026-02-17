@@ -69,3 +69,6 @@ terraform.rc
 
 # Tar balls
 *.tar
+
+# Access Keys
+*.pem
