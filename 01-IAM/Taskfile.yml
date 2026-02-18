@@ -1,0 +1,62 @@
+version: "3"
+
+env:
+  ### AWS Variables
+  AWS_ROLE_NM: "AWS-CloudChapsRole"
+  AWS_USER_GROUP: "AWS-CloudChapsGroup"
+  AWS_USER: "AWS-CloudChapsUser"
+  AWS_USER_TWO: "AWS-CloudChapsUserTwo"
+  AWS_POLICY_USR_NM: "AWS-UserPolicy"
+  AWS_POLICY_GRP_NM: "AWS-GroupPolicy"
+  AWS_POLICY_RLE_NM: "AWS-RolePolicy"
+  ####
+  AWS_STACK_NAME : "AWS-CloudChaps-IAMInfrastucture"
+
+tasks:
+####### GENERATE AWS USER AND ROLE #######
+  AWS:01-create-IAM-resources-basic:
+    desc: Create a user to make changes in IAM Service AWS cloud from local desktop
+    cmds: 
+      - cmd: |
+          gum style "$(cat <<EOF
+          🚨🚨🚨 NOTE: Exposing such credentials or store them in any control version system platform is extremly risky and can lead to potential 
+          monetary charges in your cloud platform due to the credentials being used for any kind of tasks in your account.
+          (Make sure you run the task AWS:02-delete-IAM-resources-basic to delete all the resources in this task list after you finish using it.) 🚨🚨🚨
+          EOF
+          )"
+        silent: true
+      - aws iam create-role --role-name ${AWS_ROLE_NM} --assume-role-policy-document file://./04-Policies/aws-trust-policy.json >> ~/tmp/awslogs
+      - aws iam put-role-policy --role-name ${AWS_ROLE_NM} --policy-name ${AWS_POLICY_GRP_NM} --policy-document file://./04-Policies/aws-role-policy.json >> ~/tmp/awslogs
+      - aws iam create-group --group-name ${AWS_USER_GROUP} >> ~/tmp/awslogs
+      - aws iam put-group-policy --group-name ${AWS_USER_GROUP} --policy-name ${AWS_POLICY_GRP_NM} --policy-document file://./04-Policies/aws-group-policy.json >> ~/tmp/awslogs
+      - aws iam create-user --user-name ${AWS_USER} >> ~/tmp/awslogs
+      - aws iam create-user --user-name ${AWS_USER_TWO} >> ~/tmp/awslogs
+      - aws iam put-user-policy --user-name ${AWS_USER} --policy-name ${AWS_POLICY_USR_NM} --policy-document file://./04-Policies/aws-user-policy.json >> ~/tmp/awslogs
+      - aws iam put-user-policy --user-name ${AWS_USER_TWO} --policy-name ${AWS_POLICY_USR_NM} --policy-document file://./04-Policies/aws-user-policy.json >> ~/tmp/awslogs
+      - aws iam create-access-key --user-name ${AWS_USER} > aws-access-key.json
+      - aws iam add-user-to-group --user-name ${AWS_USER} --group-name ${AWS_USER_GROUP} >> ~/tmp/awslogs
+  
+  AWS:02-delete-IAM-resources-basic:
+    desc: delete AWS resources
+    cmds:
+      - aws iam delete-role-policy --role-name ${AWS_ROLE_ID} --policy-name ${AWS_POLICY_GRP_NM} 
+      - aws iam delete-group-policy --group-name ${AWS_USER_GROUP} --policy-name ${AWS_POLICY_GRP_NM}
+      - aws iam delete-user-policy --user-name ${AWS_USER} --policy-name ${AWS_POLICY_USR_NM}
+      - aws iam delete-role --role-name ${AWS_ROLE_ID}
+      - aws iam delete-access-key --user-name ${AWS_USER} --access-key-id $(jq -r '.AccessKey.AccessKeyId' aws-access-key.json)
+      - aws iam remove-user-from-group --user-name ${AWS_USER} --group-name ${AWS_USER_GROUP}
+      - aws iam delete-user --user-name ${AWS_USER}
+      - aws iam delete-user-policy --user-name ${AWS_USER_TWO} --policy-name ${AWS_POLICY_USR_NM}
+      - aws iam delete-user --user-name ${AWS_USER_TWO}
+      - aws iam delete-group --group-name ${AWS_USER_GROUP}
+      - rm -rf aws-access-key.json
+
+  AWS:03-create-cloudformation-stack:
+    desc: Create cloud formation stack
+    cmds: 
+      - aws cloudformation create-stack --stack-name ${AWS_STACK_NAME} --template-body file://./02-CloudFormation/MainStack.yaml --capabilities CAPABILITY_NAMED_IAM
+  
+  AWS:04-delete-cloudformation-stack:
+    desc: Delete cloud formation stack
+    cmds: 
+      - aws cloudformation delete-stack --stack-name ${AWS_STACK_NAME}

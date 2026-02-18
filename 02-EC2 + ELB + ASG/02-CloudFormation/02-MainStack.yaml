@@ -1,0 +1,325 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'EC2 Stack - 3 Instances with Load Balancer'
+
+Mappings:
+  Config:
+    Names:
+      SecurityGroupName: awsCloudFormationSecurityGroup
+      TargetGroupName: awsCloudFormationTargetGroup
+      LoadBalancerName: awsCloudFormationLoadBalancer
+      Instance1Name: cloudchaps-cf-001
+      Instance2Name: cloudchaps-cf-002
+      Instance3Name: cloudchaps-cf-003
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-0e445e8482559fb54
+    Description: VPC ID where resources will be created
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Default: subnet-08fec263306b13363, subnet-0c9ff28330e54b689
+    Description: Subnet IDs for Load Balancer (minimum 2 in different AZs)
+  InstanceSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Default: subnet-08fec263306b13363
+    Description: Subnet ID for EC2 instances
+  ImageId:
+    Type: String
+    Default: ami-0532be01f26a3de55
+    Description: AMI ID for EC2 instances
+
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !FindInMap [Config, Names, SecurityGroupName]
+      GroupDescription: Security group for EC2 instances with HTTP and SSH access
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  EC2Instance1:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: t2.micro
+      SubnetId: !Ref InstanceSubnetId
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install httpd -y
+          systemctl start httpd
+          systemctl enable httpd
+          
+          INSTANCE_ID=$(ec2-metadata --instance-id | cut -d " " -f 2)
+          INSTANCE_TYPE=$(ec2-metadata --instance-type | cut -d " " -f 2)
+          AVAIL_ZONE=$(ec2-metadata --availability-zone | cut -d " " -f 2)
+          PRIVATE_IP=$(ec2-metadata --local-ipv4 | cut -d " " -f 2)
+          PUBLIC_IP=$(ec2-metadata --public-ipv4 | cut -d " " -f 2)
+          
+          cat > /var/www/html/index.html <<EOF
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>EC2 Instance Info</title>
+              <style>
+                  body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 20px; }
+                  .container { max-width: 800px; margin: 50px auto; background: white; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); padding: 40px; }
+                  h1 { color: #333; text-align: center; margin-bottom: 30px; }
+                  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+                  .info-card { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; }
+                  .label { font-weight: bold; color: #667eea; font-size: 14px; text-transform: uppercase; }
+                  .value { font-size: 18px; color: #333; margin-top: 5px; word-break: break-all; }
+                  .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>🚀 EC2 Instance Information</h1>
+                  <div class="info-grid">
+                      <div class="info-card">
+                          <div class="label">Instance ID</div>
+                          <div class="value">$INSTANCE_ID</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Instance Type</div>
+                          <div class="value">$INSTANCE_TYPE</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Availability Zone</div>
+                          <div class="value">$AVAIL_ZONE</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Private IP</div>
+                          <div class="value">$PRIVATE_IP</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Public IP</div>
+                          <div class="value">$PUBLIC_IP</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Hostname</div>
+                          <div class="value">$(hostname -f)</div>
+                      </div>
+                  </div>
+                  <div class="footer">AWS CloudChaps Training Instance</div>
+              </div>
+          </body>
+          </html>
+          EOF
+      Tags:
+        - Key: Name
+          Value: !FindInMap [Config, Names, Instance1Name]
+
+  EC2Instance2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: t2.micro
+      SubnetId: !Ref InstanceSubnetId
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install httpd -y
+          systemctl start httpd
+          systemctl enable httpd
+          
+          INSTANCE_ID=$(ec2-metadata --instance-id | cut -d " " -f 2)
+          INSTANCE_TYPE=$(ec2-metadata --instance-type | cut -d " " -f 2)
+          AVAIL_ZONE=$(ec2-metadata --availability-zone | cut -d " " -f 2)
+          PRIVATE_IP=$(ec2-metadata --local-ipv4 | cut -d " " -f 2)
+          PUBLIC_IP=$(ec2-metadata --public-ipv4 | cut -d " " -f 2)
+          
+          cat > /var/www/html/index.html <<EOF
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>EC2 Instance Info</title>
+              <style>
+                  body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 20px; }
+                  .container { max-width: 800px; margin: 50px auto; background: white; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); padding: 40px; }
+                  h1 { color: #333; text-align: center; margin-bottom: 30px; }
+                  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+                  .info-card { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; }
+                  .label { font-weight: bold; color: #667eea; font-size: 14px; text-transform: uppercase; }
+                  .value { font-size: 18px; color: #333; margin-top: 5px; word-break: break-all; }
+                  .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>🚀 EC2 Instance Information</h1>
+                  <div class="info-grid">
+                      <div class="info-card">
+                          <div class="label">Instance ID</div>
+                          <div class="value">$INSTANCE_ID</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Instance Type</div>
+                          <div class="value">$INSTANCE_TYPE</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Availability Zone</div>
+                          <div class="value">$AVAIL_ZONE</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Private IP</div>
+                          <div class="value">$PRIVATE_IP</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Public IP</div>
+                          <div class="value">$PUBLIC_IP</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Hostname</div>
+                          <div class="value">$(hostname -f)</div>
+                      </div>
+                  </div>
+                  <div class="footer">AWS CloudChaps Training Instance</div>
+              </div>
+          </body>
+          </html>
+          EOF
+      Tags:
+        - Key: Name
+          Value: !FindInMap [Config, Names, Instance2Name]
+
+  EC2Instance3:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: t2.micro
+      SubnetId: !Ref InstanceSubnetId
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install httpd -y
+          systemctl start httpd
+          systemctl enable httpd
+          
+          INSTANCE_ID=$(ec2-metadata --instance-id | cut -d " " -f 2)
+          INSTANCE_TYPE=$(ec2-metadata --instance-type | cut -d " " -f 2)
+          AVAIL_ZONE=$(ec2-metadata --availability-zone | cut -d " " -f 2)
+          PRIVATE_IP=$(ec2-metadata --local-ipv4 | cut -d " " -f 2)
+          PUBLIC_IP=$(ec2-metadata --public-ipv4 | cut -d " " -f 2)
+          
+          cat > /var/www/html/index.html <<EOF
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>EC2 Instance Info</title>
+              <style>
+                  body { font-family: Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 20px; }
+                  .container { max-width: 800px; margin: 50px auto; background: white; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); padding: 40px; }
+                  h1 { color: #333; text-align: center; margin-bottom: 30px; }
+                  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+                  .info-card { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; }
+                  .label { font-weight: bold; color: #667eea; font-size: 14px; text-transform: uppercase; }
+                  .value { font-size: 18px; color: #333; margin-top: 5px; word-break: break-all; }
+                  .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>🚀 EC2 Instance Information</h1>
+                  <div class="info-grid">
+                      <div class="info-card">
+                          <div class="label">Instance ID</div>
+                          <div class="value">$INSTANCE_ID</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Instance Type</div>
+                          <div class="value">$INSTANCE_TYPE</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Availability Zone</div>
+                          <div class="value">$AVAIL_ZONE</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Private IP</div>
+                          <div class="value">$PRIVATE_IP</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Public IP</div>
+                          <div class="value">$PUBLIC_IP</div>
+                      </div>
+                      <div class="info-card">
+                          <div class="label">Hostname</div>
+                          <div class="value">$(hostname -f)</div>
+                      </div>
+                  </div>
+                  <div class="footer">AWS CloudChaps Training Instance</div>
+              </div>
+          </body>
+          </html>
+          EOF
+      Tags:
+        - Key: Name
+          Value: !FindInMap [Config, Names, Instance3Name]
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !FindInMap [Config, Names, TargetGroupName]
+      Protocol: HTTP
+      Port: 80
+      VpcId: !Ref VpcId
+      HealthCheckEnabled: true
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      Targets:
+        - Id: !Ref EC2Instance1
+        - Id: !Ref EC2Instance2
+        - Id: !Ref EC2Instance3
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !FindInMap [Config, Names, LoadBalancerName]
+      Type: application
+      Scheme: internet-facing
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !Ref SecurityGroup
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+Outputs:
+  LoadBalancerDNS:
+    Description: Load Balancer DNS Name
+    Value: !GetAtt LoadBalancer.DNSName
+  Instance1Id:
+    Description: Instance 1 ID
+    Value: !Ref EC2Instance1
+  Instance2Id:
+    Description: Instance 2 ID
+    Value: !Ref EC2Instance2
+  Instance3Id:
+    Description: Instance 3 ID
+    Value: !Ref EC2Instance3
