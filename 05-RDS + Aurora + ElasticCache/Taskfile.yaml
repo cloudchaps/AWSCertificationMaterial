@@ -2,16 +2,16 @@
 version: "3"
 env:
   ### AWS Variables
-  S3_WEB_HOST_BUCKET: "cloudchapseebhostingexample"
-  S3_WEB_HOST_BUCKET_FULL: "cloudchapseebhostingexample-20260217-155116"
-  CLOUDFRONT_DISTRO: "CloudChapsCloudFrontDistro"
-  SNS_TOPIC: "CloudChapsSNSTopicExample"
-  EMAIL_TOPIC_SUB: "delarosasaucedodanielalberto@gmail.com"
+  HOST_SECURITYGROUP: "cloudchapsHost-SecurityGroup"
+  DB_SECURITYGROUP: "cloudchapsDB-SecurityGroup"
+  DB_NAME: "cloudchapscrud"
+  DB_USER: "CloudChapsSNSTopicExample"
+  DB_PASS: "delarosasaucedodanielalberto@gmail.com"
 
 tasks:
-####### GENERATE AWS S3 BUCKET #######
-  AWS:01-S3-Bucket-Public:
-    desc: Create Web Hosting bucket in S3
+####### DEPLOY SAMPLE CRUD SERVICE #######
+  AWS:01-Deploy-basic-CRUD-Service:
+    desc: Deploy Basic CRUD Repo
     cmds: 
       - cmd: |
           gum style "$(cat <<EOF
@@ -21,53 +21,4 @@ tasks:
           EOF
           )"
         silent: true
-      - ./01-Scripts/01-CreateS3Hosting.sh "${S3_WEB_HOST_BUCKET}"
-
-  AWS:02-S3-Bucket-Private:
-    desc: Create Web Hosting bucket in S3 using cloudfron to access private objects
-    cmds: 
-      - cmd: |
-          gum style "$(cat <<EOF
-          🚨🚨🚨 NOTE: Exposing such credentials or store them in any control version system platform is extremly risky and can lead to potential 
-          monetary charges in your cloud platform due to the credentials being used for any kind of tasks in your account.
-          (Make sure you run the task AWS:03-delete-aws-resources to delete all the resources in this task list after you finish using it.) 🚨🚨🚨
-          EOF
-          )"
-        silent: true
-      - ./01-Scripts/02-CreateS3HostingPrivate.sh "${S3_WEB_HOST_BUCKET}" "${CLOUDFRONT_DISTRO}"
-
-  AWS:03-S3-Bucket-Private-and-SNS:
-    desc: Create Web Hosting bucket in S3 using cloudfron to access private objects
-    cmds: 
-      - cmd: |
-          gum style "$(cat <<EOF
-          🚨🚨🚨 NOTE: Exposing such credentials or store them in any control version system platform is extremly risky and can lead to potential 
-          monetary charges in your cloud platform due to the credentials being used for any kind of tasks in your account.
-          (Make sure you run the task AWS:03-delete-aws-resources to delete all the resources in this task list after you finish using it.) 🚨🚨🚨
-          EOF
-          )"
-        silent: true
-      - ./01-Scripts/03-CreateS3HostingSNSNotification.sh "${S3_WEB_HOST_BUCKET}" "${CLOUDFRONT_DISTRO}" "${SNS_TOPIC}" "${EMAIL_TOPIC_SUB}"
-
-  AWS:04-S3-Update-Web-Content:
-    desc: Update S3 bucket content
-    cmds:
-      - aws s3 sync ./06-StaticWebs/03-ThirdPractice/ s3://${S3_WEB_HOST_BUCKET_FULL}/ --delete
-  
-  AWS:05-Invalidate-cloudFront-Cache:
-    desc: Invalidate CloudFront cache
-    cmds:
-      - cmd: |
-          CLOUDFRONT_DISTRO_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Origins.Items[?contains(DomainName,'${S3_WEB_HOST_BUCKET_FULL}')]].Id" --output text)
-          if [ -z "$CLOUDFRONT_DISTRO_ID" ]; then
-            echo "❌ CloudFront distribution not found for bucket ${S3_WEB_HOST_BUCKET_FULL}"
-            exit 1
-          fi
-          echo "🔄 Invalidating CloudFront cache for distribution: $CLOUDFRONT_DISTRO_ID"
-          aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRO_ID --paths "/*" 2>/dev/null
-          echo "✅ Cache invalidation created"
-
-  AWS:06-CleanUp-resources:
-    desc: Delete all resources created in the previous tasks
-    cmds:
-      - ./01-Scripts/04-CleanUpResources.sh "${S3_WEB_HOST_BUCKET}" "${CLOUDFRONT_DISTRO}" "${SNS_TOPIC}"
+      - ./01-Scripts/01-DeployCRUDApp.sh

@@ -216,6 +216,10 @@ if (isset($pdo)) {
         <?php endif; ?>
         
         <div class="footer">
+            <strong>⚠️ Security Notice:</strong> This is a basic sample with minimum security. Users are accessing the service host directly. 
+            Although the DB security group does not allow traffic from the internet, the database is not in a private subnet, 
+            which would offer an extra layer of data protection.
+            <br><br>
             AWS CloudChaps Training - RDS CRUD Demo
         </div>
     </div>
