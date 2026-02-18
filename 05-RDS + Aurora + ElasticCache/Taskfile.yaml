@@ -22,3 +22,16 @@ tasks:
           )"
         silent: true
       - ./01-Scripts/01-DeployCRUDApp.sh
+
+  AWS:02-Deploy-Memcache-CRUD-Service:
+    desc: Deploy Memcache CRUD Repo
+    cmds: 
+      - cmd: |
+          gum style "$(cat <<EOF
+          🚨🚨🚨 NOTE: Exposing such credentials or store them in any control version system platform is extremly risky and can lead to potential 
+          monetary charges in your cloud platform due to the credentials being used for any kind of tasks in your account.
+          (Make sure you run the task AWS:03-delete-aws-resources to delete all the resources in this task list after you finish using it.) 🚨🚨🚨
+          EOF
+          )"
+        silent: true
+      - ./01-Scripts/02-DeployCRUDAndMemcache.sh

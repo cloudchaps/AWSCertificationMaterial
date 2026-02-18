@@ -72,3 +72,6 @@ terraform.rc
 
 # Access Keys
 *.pem
+
+#Auto generated files
+cloud-provider-kind
