@@ -40,16 +40,3 @@ tasks:
     desc: Delete all resources created in the previous tasks
     cmds:
       - ./01-Scripts/03-CleanUpResources.sh
-      
-  AWS:04-Deploy-Complete-Stack:
-    desc: Deploy Complete Stack with all the components
-    cmds:
-      - cmd: |
-          gum style "$(cat <<EOF
-          🚨🚨🚨 NOTE: Exposing such credentials or store them in any control version system platform is extremly risky and can lead to potential 
-          monetary charges in your cloud platform due to the credentials being used for any kind of tasks in your account.
-          (Make sure you run the task AWS:03-delete-aws-resources to delete all the resources in this task list after you finish using it.) 🚨🚨🚨
-          EOF
-          )"
-        silent: true
-      - ./01-Scripts/04-DeployCompleteStack.sh
