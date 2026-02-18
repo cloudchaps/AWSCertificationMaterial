@@ -195,7 +195,7 @@ apt-get install -y php libapache2-mod-php php-mysql php-memcached apache2 mysql-
 
 # Download index.php from GitHub
 cd /var/www/html
-curl -o index.php https://raw.githubusercontent.com/cloudchaps/AWSCertificationMaterial/refs/heads/main/05-RDS%20%2B%20Aurora%20%2B%20ElasticCache/07-CRUD%26Memcache/index.php
+curl -o index.php https://raw.githubusercontent.com/cloudchaps/AWSCertificationMaterial/refs/heads/dev1/05-RDS%20%2B%20ElasticCache/07-CRUD%26Memcache/index.php
 
 # Set proper permissions
 chown -R www-data:www-data /var/www/html/
@@ -224,12 +224,14 @@ CREATE TABLE IF NOT EXISTS items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
+    valid_service boolean,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 INSERT INTO items (name, description) VALUES
-('Sample Item 1', 'This is a sample item stored in AWS RDS'),
-('Sample Item 2', 'Another example demonstrating CRUD operations');
+('EC2', 'Web service that provides sizable compute capacity in the cloud.'),
+('RDS', 'Is a managed relational database service for MySQL, PostgreSQL, MariaDB, Oracle, or SQL Server.');
+UPDATE items SET valid_service = true WHERE id IN (1, 2);
 SQL
 USERDATA
 

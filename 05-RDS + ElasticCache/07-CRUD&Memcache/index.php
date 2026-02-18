@@ -270,7 +270,6 @@ if (isset($pdo)) {
                         <td><?= htmlspecialchars($item['description']) ?></td>
                         <td><?= $item['valid_service'] ? '✅ Yes' : '❌ No' ?></td>
                         <td>
-                            <button onclick="editItem(<?= $item['id'] ?>, '<?= htmlspecialchars($item['name'], ENT_QUOTES) ?>', '<?= htmlspecialchars($item['description'], ENT_QUOTES) ?>', <?= $item['valid_service'] ?>)" style="background: #ffc107; margin-right: 5px;">Edit</button>
                             <form method="POST" style="display:inline;">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="id" value="<?= $item['id'] ?>">
@@ -295,30 +294,5 @@ if (isset($pdo)) {
             AWS CloudChaps Training - RDS + Memcached CRUD Demo
         </div>
     </div>
-    <script>
-    function editItem(id, name, description, validService) {
-        document.querySelector('input[name="action"]').value = 'update';
-        document.querySelector('input[name="name"]').value = name;
-        document.querySelector('textarea[name="description"]').value = description;
-        
-        let form = document.querySelector('.form-section form');
-        if (!document.querySelector('input[name="id"]')) {
-            let idInput = document.createElement('input');
-            idInput.type = 'hidden';
-            idInput.name = 'id';
-            form.appendChild(idInput);
-        }
-        document.querySelector('input[name="id"]').value = id;
-        document.querySelector('input[name="valid_service"]').checked = validService == 1;
-        document.querySelector('.form-section h3').textContent = '✏️ Update Item';
-        document.querySelector('.form-section button').textContent = 'Update Item';
-        window.scrollTo(0, 0);
-    }
-    </script>
-        document.querySelector('.form-section h3').textContent = '✏️ Update Item';
-        document.querySelector('.form-section button').textContent = 'Update Item';
-        window.scrollTo(0, 0);
-    }
-    </script>
 </body>
 </html>
