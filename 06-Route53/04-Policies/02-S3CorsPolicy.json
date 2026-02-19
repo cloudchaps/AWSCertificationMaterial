@@ -1,0 +1,16 @@
+[
+  {
+    "AllowedHeaders": [
+      "Authorization"
+    ],
+    "AllowedMethods": [
+      "GET", "HEAD"
+    ],
+    "AllowedOrigins": [
+      "http://YOUR_ELASTIC_IP/index.php"
+    ],
+    "ExposeHeaders": [],
+    "MaxAgeSeconds": 3000
+  }
+]
+

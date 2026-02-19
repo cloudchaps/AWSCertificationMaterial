@@ -10,6 +10,11 @@ MEMCACHE_SECURITYGROUP="crud-memcache-security-group"
 DB_NAME="${2:-cruddb}"
 DB_USER="${3:-admin}"
 DB_PASS="${4:-CloudChaps2024!}"
+HOSTED_ZONE_ID="${5}"
+DOMAIN_NAME="${6}"
+S3_BUCKET_NAME="crud-images-$(date +%s)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IMAGES_DIR="${SCRIPT_DIR}/../07-Images"
 
 # Create EC2 security group
 echo "🔍 Checking EC2 security group ${SECURITYGROUP}..."
@@ -182,6 +187,70 @@ fi
 DB_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier ${DB_INSTANCE_ID} --query 'DBInstances[0].Endpoint.Address' --output text)
 echo "✅ RDS Endpoint: ${DB_ENDPOINT}"
 
+# Create S3 bucket for images
+echo "📦 Creating S3 bucket: ${S3_BUCKET_NAME}..."
+REGION=$(aws configure get region)
+aws s3api create-bucket --bucket ${S3_BUCKET_NAME} --region ${REGION} >/dev/null 2>&1
+echo "✅ S3 bucket created"
+
+# Disable block public access
+echo "🔓 Configuring S3 bucket public access..."
+aws s3api put-public-access-block \
+  --bucket ${S3_BUCKET_NAME} \
+  --public-access-block-configuration "BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=false,RestrictPublicBuckets=false" >/dev/null 2>&1
+
+# Apply bucket policy
+echo "📝 Applying S3 bucket policy..."
+cat > /tmp/bucket-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublicReadGetObject",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::${S3_BUCKET_NAME}/*"
+    }
+  ]
+}
+EOF
+aws s3api put-bucket-policy --bucket ${S3_BUCKET_NAME} --policy file:///tmp/bucket-policy.json >/dev/null 2>&1
+
+# Apply CORS policy
+echo "🌐 Applying CORS policy..."
+cat > /tmp/cors-policy.json <<EOF
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedOrigins": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+EOF
+aws s3api put-bucket-cors --bucket ${S3_BUCKET_NAME} --cors-configuration file:///tmp/cors-policy.json >/dev/null 2>&1
+echo "✅ S3 bucket configured"
+
+# Upload images to S3
+echo "📤 Uploading images to S3..."
+if [ -d "${IMAGES_DIR}" ]; then
+  for img in "${IMAGES_DIR}"/*; do
+    if [ -f "$img" ]; then
+      aws s3 cp "$img" "s3://${S3_BUCKET_NAME}/" >/dev/null 2>&1
+      echo "  ✅ Uploaded $(basename "$img")"
+    fi
+  done
+else
+  echo "  ⚠️ Images directory not found: ${IMAGES_DIR}"
+fi
+
+# Get first image S3 URI for database
+FIRST_IMAGE=$(aws s3 ls s3://${S3_BUCKET_NAME}/ | head -1 | awk '{print $4}')
+IMAGE_S3_URI="https://${S3_BUCKET_NAME}.s3.${REGION}.amazonaws.com/${FIRST_IMAGE}"
+echo "✅ Sample image URI: ${IMAGE_S3_URI}"
+
 # Create user-data script
 cat > /tmp/userdata.sh <<'USERDATA'
 #!/bin/bash
@@ -195,7 +264,7 @@ apt-get install -y php libapache2-mod-php php-mysql php-memcached apache2 mysql-
 
 # Download index.php from GitHub
 cd /var/www/html
-curl -o index.php https://raw.githubusercontent.com/cloudchaps/AWSCertificationMaterial/refs/heads/dev1/05-RDS%20%2B%20ElasticCache/07-CRUD%26Memcache/index.php
+curl -o index.php https://raw.githubusercontent.com/cloudchaps/AWSCertificationMaterial/refs/heads/dev1/06-Route53/06-CRUDService/index.php
 
 # Set proper permissions
 chown -R www-data:www-data /var/www/html/
@@ -224,14 +293,18 @@ CREATE TABLE IF NOT EXISTS items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
+    s3_uri VARCHAR(500),
+    item_arn VARCHAR(500),
+    etag VARCHAR(100),
     valid_service boolean,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
-INSERT INTO items (name, description) VALUES
-('EC2', 'Web service that provides sizable compute capacity in the cloud.'),
-('RDS', 'Is a managed relational database service for MySQL, PostgreSQL, MariaDB, Oracle, or SQL Server.');
-UPDATE items SET valid_service = true WHERE id IN (1, 2);
+INSERT INTO items (name, description, s3_uri, item_arn, etag, valid_service) VALUES
+('EC2', 'Web service that provides sizable compute capacity in the cloud.', 'IMAGE_S3_URI_PLACEHOLDER', 'arn:aws:s3:::BUCKET_NAME_PLACEHOLDER/image1.png', 'sample-etag-1', 1),
+('Memcache', 'Is a free, open-source, high-performance, distributed memory object caching system.', 'IMAGE_S3_URI_PLACEHOLDER', 'arn:aws:s3:::BUCKET_NAME_PLACEHOLDER/image2.png', 'sample-etag-2', 1),
+('Route53', 'is a highly available and scalable cloud Domain Name System (DNS) web service designed to route end-users to internet applications by translating human-readable names.', 'IMAGE_S3_URI_PLACEHOLDER', 'arn:aws:s3:::BUCKET_NAME_PLACEHOLDER/image3.png', 'sample-etag-3', 1),
+('RDS', 'Is a managed relational database service for MySQL, PostgreSQL, MariaDB, Oracle, or SQL Server.', 'IMAGE_S3_URI_PLACEHOLDER', 'arn:aws:s3:::BUCKET_NAME_PLACEHOLDER/image4.png', 'sample-etag-4', 1);
 SQL
 USERDATA
 
@@ -241,6 +314,8 @@ sed -i "s/DB_NAME_PLACEHOLDER/${DB_NAME}/g" /tmp/userdata.sh
 sed -i "s/DB_USER_PLACEHOLDER/${DB_USER}/g" /tmp/userdata.sh
 sed -i "s/DB_PASS_PLACEHOLDER/${DB_PASS}/g" /tmp/userdata.sh
 sed -i "s/MEMCACHE_ENDPOINT_PLACEHOLDER/${MEMCACHE_ENDPOINT}/g" /tmp/userdata.sh
+sed -i "s|IMAGE_S3_URI_PLACEHOLDER|${IMAGE_S3_URI}|g" /tmp/userdata.sh
+sed -i "s/BUCKET_NAME_PLACEHOLDER/${S3_BUCKET_NAME}/g" /tmp/userdata.sh
 
 # Launch EC2 instance
 echo "🚀 Launching EC2 instance..."
@@ -262,10 +337,52 @@ echo "⏳ Waiting for instance to be running..."
 aws ec2 wait instance-running --instance-ids ${INSTANCE_ID}
 PUBLIC_IP=$(aws ec2 describe-instances --instance-ids ${INSTANCE_ID} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
 
+# Allocate Elastic IP
+echo "🌐 Allocating Elastic IP..."
+ALLOCATION_ID=$(aws ec2 allocate-address --domain vpc --query 'AllocationId' --output text)
+ELASTIC_IP=$(aws ec2 describe-addresses --allocation-ids ${ALLOCATION_ID} --query 'Addresses[0].PublicIp' --output text)
+echo "✅ Elastic IP allocated: ${ELASTIC_IP}"
+
+# Associate Elastic IP with instance
+echo "🔗 Associating Elastic IP with instance..."
+aws ec2 associate-address --instance-id ${INSTANCE_ID} --allocation-id ${ALLOCATION_ID} >/dev/null 2>&1
+echo "✅ Elastic IP associated"
+
+# Create Route53 record
+if [ ! -z "${HOSTED_ZONE_ID}" ] && [ ! -z "${DOMAIN_NAME}" ]; then
+  echo "🌍 Creating Route53 DNS record..."
+  cat > /tmp/route53-change.json <<EOF
+{
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "${DOMAIN_NAME}",
+        "Type": "A",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "${ELASTIC_IP}"
+          }
+        ]
+      }
+    }
+  ]
+}
+EOF
+  aws route53 change-resource-record-sets \
+    --hosted-zone-id ${HOSTED_ZONE_ID} \
+    --change-batch file:///tmp/route53-change.json >/dev/null 2>&1
+  echo "✅ Route53 record created: ${DOMAIN_NAME} -> ${ELASTIC_IP}"
+  rm -f /tmp/route53-change.json
+else
+  echo "ℹ️ Skipping Route53 record (HOSTED_ZONE_ID or DOMAIN_NAME not provided)"
+fi
+
 echo "📝 Check user-data execution: ssh ec2-user@${PUBLIC_IP} 'sudo cat /var/log/cloud-init-output.log'"
 
 # Clean up
-rm -f /tmp/userdata.sh
+rm -f /tmp/userdata.sh /tmp/bucket-policy.json /tmp/cors-policy.json
 
 echo "
 🎉 Deployment complete!
@@ -275,12 +392,16 @@ echo "
 - RDS Endpoint: ${DB_ENDPOINT}
 - Memcached Cache: ${CACHE_NAME}
 - Memcached Endpoint: ${MEMCACHE_ENDPOINT}
+- S3 Bucket: ${S3_BUCKET_NAME}
 - EC2 Instance: ${INSTANCE_ID}
 - Instance Name: ${INSTANCE_NAME}
-- Public IP: ${PUBLIC_IP}
+- Elastic IP: ${ELASTIC_IP}
+- Allocation ID: ${ALLOCATION_ID}
+${DOMAIN_NAME:+- Domain: ${DOMAIN_NAME}}
 
 🌐 Access your CRUD application:
-   http://${PUBLIC_IP}/index.php
+   http://${ELASTIC_IP}/index.php
+${DOMAIN_NAME:+   http://${DOMAIN_NAME}/index.php}
 
 📝 Database Credentials:
    Host: ${DB_ENDPOINT}
@@ -290,6 +411,10 @@ echo "
 
 ⚡ Memcached:
    Endpoint: ${MEMCACHE_ENDPOINT}
+
+📦 S3 Bucket:
+   Name: ${S3_BUCKET_NAME}
+   Sample Image: ${IMAGE_S3_URI}
 
 Note: Wait 2-3 minutes for user-data script to complete setup.
 "
