@@ -1,0 +1,48 @@
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Sid": "S3CredentialsAccess",
+			"Effect": "Allow",
+			"Action": [
+				"s3:*",
+				"s3-object-lambda:*"
+			],
+			"Resource": "*"
+		},
+		{
+			"Sid": "EC2CredentialsAccess",
+			"Effect": "Allow",
+			"Action": [
+				"ec2:*",
+				"cloudwatch:*",
+				"elasticloadbalancing:*",
+				"autoscaling:*"
+			],
+			"Resource": "*"
+		},
+		{
+			"Sid": "ElasticCacheCredentialsAccess",
+			"Effect": "Allow",
+			"Action": [
+				"elasticache:*",
+				"cloudwatch:*",
+				"elasticloadbalancing:*",
+				"autoscaling:*"
+			],
+			"Resource": "*"
+		},
+		{
+            "Sid": "EnableIAMUserPermissions",
+            "Effect": "Allow",
+            "Action": "kms:*",
+            "Resource": "*"
+        },
+        {
+            "Sid": "AllowFullAccesstoAdminRole",
+            "Effect": "Allow",
+            "Action": "kms:*",
+            "Resource": "*"
+        }
+	]
+}

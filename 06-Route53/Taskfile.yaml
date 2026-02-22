@@ -1,0 +1,25 @@
+---
+version: "3"
+env:
+  ### AWS Variables
+  SECURITYGROUP: "crud-security-group"
+  DB_NAME: "cruddb"
+  DB_USER: "admin"
+  DB_PASSWORD: "CloudChaps2024!"
+  HOSTED_ZONE_ID: "Z01421803NM3NZE3DRNDI"
+  DOMAIN_NAME: "cloudchaps.com"
+
+tasks:
+####### DEPLOY SAMPLE CRUD SERVICE #######
+  AWS:01-Deploy-intermediate-CRUD-Service:
+    desc: Deploy intermediate CRUD Repo
+    cmds: 
+      - cmd: |
+          gum style "$(cat <<EOF
+          🚨🚨🚨 NOTE: Exposing such credentials or store them in any control version system platform is extremly risky and can lead to potential 
+          monetary charges in your cloud platform due to the credentials being used for any kind of tasks in your account.
+          (Make sure you run the task AWS:03-delete-aws-resources to delete all the resources in this task list after you finish using it.) 🚨🚨🚨
+          EOF
+          )"
+        silent: true
+      - ./01-Scripts/01-DeployResources.sh "${SECURITYGROUP}" "${DB_NAME}" "${DB_USER}" "${DB_PASSWORD}" "${HOSTED_ZONE_ID}" "${DOMAIN_NAME}"

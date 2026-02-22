@@ -2,7 +2,7 @@
 
 VPCID="vpc-0e445e8482559fb54"
 AZ="us-east-1d"
-AMI_ID="ami-0b6c6ebed2801a5cb"  # Amazon Linux 2 AMI
+AMI_ID="ami-0b6c6ebed2801a5cb"  # Ubuntu AMI
 INSTANCE_NAME="CloudChamps - CRUD Main"
 DB_SECURITYGROUP="crud-db-security-group"
 MEMCACHE_SECURITYGROUP="crud-memcache-security-group"
@@ -15,20 +15,23 @@ DB_USER="${3}"
 DB_PASS="${4}"
 HOSTED_ZONE_ID="${5}"
 DOMAIN_NAME="${6}"
+PROFILE="${7}"
 
 # Create EC2 security group
 echo "🔍 Checking EC2 security group ${SECURITYGROUP}..."
-SECURITYGROUP_ID=$(aws ec2 describe-security-groups --group-names ${SECURITYGROUP} --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null)
+SECURITYGROUP_ID=$(aws ec2 describe-security-groups --profile ${PROFILE} --group-names ${SECURITYGROUP} --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null)
 
 if [ -z "$SECURITYGROUP_ID" ] || [ "$SECURITYGROUP_ID" = "None" ]; then
   echo "📦 Creating EC2 security group..."
   SECURITYGROUP_ID=$(aws ec2 create-security-group \
+    --profile ${PROFILE} \
     --group-name "${SECURITYGROUP}" \
     --description "Security group for CRUD application" \
     --vpc-id "${VPCID}" \
     --query 'GroupId' --output text 2>/dev/null) 
   
   aws ec2 authorize-security-group-ingress \
+    --profile ${PROFILE} \
     --group-id "${SECURITYGROUP_ID}" \
     --ip-permissions \
       IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges='[{CidrIp=0.0.0.0/0}]' \
@@ -41,17 +44,19 @@ fi
 
 # Create DB security group
 echo "🔍 Checking DB security group ${DB_SECURITYGROUP}..."
-DB_SECURITYGROUP_ID=$(aws ec2 describe-security-groups --group-names ${DB_SECURITYGROUP} --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null)
+DB_SECURITYGROUP_ID=$(aws ec2 describe-security-groups --profile ${PROFILE} --group-names ${DB_SECURITYGROUP} --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null)
 
 if [ -z "$DB_SECURITYGROUP_ID" ] || [ "$DB_SECURITYGROUP_ID" = "None" ]; then
   echo "📦 Creating DB security group..."
   DB_SECURITYGROUP_ID=$(aws ec2 create-security-group \
+    --profile ${PROFILE} \
     --group-name "${DB_SECURITYGROUP}" \
     --description "Security group for RDS database" \
     --vpc-id "${VPCID}" \
     --query 'GroupId' --output text 2>/dev/null)
   
   aws ec2 authorize-security-group-ingress \
+    --profile ${PROFILE} \
     --group-id "${DB_SECURITYGROUP_ID}" \
     --protocol tcp \
     --port 3306 \
@@ -69,12 +74,14 @@ MEMCACHE_SECURITYGROUP_ID=$(aws ec2 describe-security-groups --group-names ${MEM
 if [ -z "$MEMCACHE_SECURITYGROUP_ID" ] || [ "$MEMCACHE_SECURITYGROUP_ID" = "None" ]; then
   echo "📦 Creating Memcache security group..."
   MEMCACHE_SECURITYGROUP_ID=$(aws ec2 create-security-group \
+    --profile ${PROFILE} \
     --group-name "${MEMCACHE_SECURITYGROUP}" \
     --description "Security group for Memcached" \
     --vpc-id "${VPCID}" \
     --query 'GroupId' --output text 2>/dev/null)
   
   aws ec2 authorize-security-group-ingress \
+    --profile ${PROFILE} \
     --group-id "${MEMCACHE_SECURITYGROUP_ID}" \
     --protocol tcp \
     --port 11211 \
@@ -87,7 +94,7 @@ fi
 
 # Get subnet in the specified AZ
 echo "🔍 Getting subnet in AZ ${AZ}..."
-SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=${VPCID}" "Name=availability-zone,Values=${AZ}" --query 'Subnets[0].SubnetId' --output text)
+SUBNET_ID=$(aws ec2 describe-subnets --profile ${PROFILE} --filters "Name=vpc-id,Values=${VPCID}" "Name=availability-zone,Values=${AZ}" --query 'Subnets[0].SubnetId' --output text)
 if [ -z "$SUBNET_ID" ] || [ "$SUBNET_ID" = "None" ]; then
   echo "❌ No subnet found in AZ ${AZ}!"
   exit 1
@@ -95,7 +102,7 @@ fi
 echo "✅ Found subnet: ${SUBNET_ID}"
 
 # Get all subnets in VPC (need at least 2 for serverless cache)
-SUBNET_IDS_ARRAY=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=${VPCID}" --query 'Subnets[*].SubnetId' --output text)
+SUBNET_IDS_ARRAY=$(aws ec2 describe-subnets --profile ${PROFILE} --filters "Name=vpc-id,Values=${VPCID}" --query 'Subnets[*].SubnetId' --output text)
 SUBNET_COUNT=$(echo $SUBNET_IDS_ARRAY | wc -w)
 
 if [ $SUBNET_COUNT -lt 2 ]; then
@@ -114,6 +121,7 @@ ALL_SUBNET_IDS=$(echo $SUBNET_IDS_ARRAY | tr '\t' ' ')
 # Create cache subnet group
 echo "⚡ Creating cache subnet group..."
 aws elasticache create-cache-subnet-group \
+  --profile ${PROFILE} \
   --cache-subnet-group-name crud-cache-subnet-group \
   --cache-subnet-group-description "Subnet group for Memcached" \
   --subnet-ids $ALL_SUBNET_IDS 2>/dev/null || echo "Cache subnet group already exists"
@@ -123,6 +131,7 @@ echo "⚡ Creating Memcached serverless cache..."
 CACHE_NAME="crud-memcached"
 SUBNET_MEMCACHED_IDS="subnet-0c9ff28330e54b689 subnet-0fdcdc7bb859c610e"
 aws elasticache create-serverless-cache \
+  --profile ${PROFILE} \
   --serverless-cache-name ${CACHE_NAME} \
   --engine memcached \
   --security-group-ids ${MEMCACHE_SECURITYGROUP_ID} \
@@ -139,7 +148,7 @@ else
 fi
 
 # Get Memcached endpoint
-MEMCACHE_ENDPOINT=$(aws elasticache describe-serverless-caches --serverless-cache-name ${CACHE_NAME} --query 'ServerlessCaches[0].Endpoint.Address' --output text 2>/dev/null)
+MEMCACHE_ENDPOINT=$(aws elasticache describe-serverless-caches --profile ${PROFILE} --serverless-cache-name ${CACHE_NAME} --query 'ServerlessCaches[0].Endpoint.Address' --output text 2>/dev/null)
 if [ -z "$MEMCACHE_ENDPOINT" ] || [ "$MEMCACHE_ENDPOINT" = "None" ]; then
   echo "⚠️ Memcached endpoint not yet available, will be set in environment"
   MEMCACHE_ENDPOINT="pending"
@@ -150,6 +159,7 @@ fi
 # Create DB subnet group
 echo "🗄️ Creating DB subnet group..."
 aws rds create-db-subnet-group \
+  --profile ${PROFILE} \
   --db-subnet-group-name crud-db-subnet-group \
   --db-subnet-group-description "Subnet group for CRUD RDS" \
   --subnet-ids $ALL_SUBNET_IDS 2>/dev/null || echo "DB subnet group already exists"
@@ -158,6 +168,7 @@ aws rds create-db-subnet-group \
 echo "🗄️ Creating RDS MySQL instance... and this DB ${DB_NAME}"
 DB_INSTANCE_ID="crud-mysql-db"
 aws rds create-db-instance \
+  --profile ${PROFILE} \
   --db-instance-identifier ${DB_INSTANCE_ID} \
   --db-instance-class db.t3.micro \
   --engine mysql \
@@ -184,18 +195,19 @@ else
 fi
 
 # Get RDS endpoint
-DB_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier ${DB_INSTANCE_ID} --query 'DBInstances[0].Endpoint.Address' --output text)
+DB_ENDPOINT=$(aws rds describe-db-instances --profile ${PROFILE} --db-instance-identifier ${DB_INSTANCE_ID} --query 'DBInstances[0].Endpoint.Address' --output text)
 echo "✅ RDS Endpoint: ${DB_ENDPOINT}"
 
 # Create S3 bucket for images
 echo "📦 Creating S3 bucket: ${S3_BUCKET_NAME}..."
-REGION=$(aws configure get region)
-aws s3api create-bucket --bucket ${S3_BUCKET_NAME} --region ${REGION} >/dev/null 2>&1
+REGION=$(aws configure get region --profile ${PROFILE})
+aws s3api create-bucket --profile ${PROFILE} --bucket ${S3_BUCKET_NAME} --region ${REGION} >/dev/null 2>&1
 echo "✅ S3 bucket created"
 
 # Disable block public access
 echo "🔓 Configuring S3 bucket public access..."
 aws s3api put-public-access-block \
+  --profile ${PROFILE} \
   --bucket ${S3_BUCKET_NAME} \
   --public-access-block-configuration "BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=false,RestrictPublicBuckets=false" >/dev/null 2>&1
 
@@ -215,7 +227,7 @@ cat > /tmp/bucket-policy.json <<EOF
   ]
 }
 EOF
-aws s3api put-bucket-policy --bucket ${S3_BUCKET_NAME} --policy file:///tmp/bucket-policy.json >/dev/null 2>&1
+aws s3api put-bucket-policy --profile ${PROFILE} --bucket ${S3_BUCKET_NAME} --policy file:///tmp/bucket-policy.json >/dev/null 2>&1
 
 # Apply CORS policy
 echo "🌐 Applying CORS policy..."
@@ -230,7 +242,7 @@ cat > /tmp/cors-policy.json <<EOF
   }
 ]
 EOF
-aws s3api put-bucket-cors --bucket ${S3_BUCKET_NAME} --cors-configuration file:///tmp/cors-policy.json >/dev/null 2>&1
+aws s3api put-bucket-cors --profile ${PROFILE} --bucket ${S3_BUCKET_NAME} --cors-configuration file:///tmp/cors-policy.json >/dev/null 2>&1
 echo "✅ S3 bucket configured"
 
 # Upload images to S3
@@ -238,7 +250,7 @@ echo "📤 Uploading images to S3..."
 if [ -d "${IMAGES_DIR}" ]; then
   for img in "${IMAGES_DIR}"/*; do
     if [ -f "$img" ]; then
-      aws s3 cp "$img" "s3://${S3_BUCKET_NAME}/" >/dev/null 2>&1
+      aws s3 cp --profile ${PROFILE} "$img" "s3://${S3_BUCKET_NAME}/" >/dev/null 2>&1
       echo "  ✅ Uploaded $(basename "$img")"
     fi
   done
@@ -247,7 +259,7 @@ else
 fi
 
 # Get first image S3 URI for database
-FIRST_IMAGE=$(aws s3 ls s3://${S3_BUCKET_NAME}/ | head -1 | awk '{print $4}')
+FIRST_IMAGE=$(aws s3 ls --profile ${PROFILE} s3://${S3_BUCKET_NAME}/ | head -1 | awk '{print $4}')
 IMAGE_S3_URI="https://${S3_BUCKET_NAME}.s3.${REGION}.amazonaws.com/${FIRST_IMAGE}"
 echo "✅ Sample image URI: ${IMAGE_S3_URI}"
 
@@ -264,7 +276,7 @@ apt-get install -y php libapache2-mod-php php-mysql php-memcached apache2 mysql-
 
 # Download index.php from GitHub
 cd /var/www/html
-curl -o index.php https://raw.githubusercontent.com/cloudchaps/AWSCertificationMaterial/refs/heads/dev1/06-Route53/06-CRUDService/index.php
+curl -o index.php https://raw.githubusercontent.com/cloudchaps/AWSCertificationMaterial/refs/heads/dev1/07-IAM_Advanced and Sectret Manager/07-CRUDService/index.php
 
 # Set proper permissions
 chown -R www-data:www-data /var/www/html/
@@ -320,6 +332,7 @@ sed -i "s/BUCKET_NAME_PLACEHOLDER/${S3_BUCKET_NAME}/g" /tmp/userdata.sh
 # Launch EC2 instance
 echo "🚀 Launching EC2 instance..."
 INSTANCE_ID=$(aws ec2 run-instances \
+  --profile ${PROFILE} \
   --image-id ${AMI_ID} \
   --instance-type t2.micro \
   --subnet-id ${SUBNET_ID} \
@@ -334,18 +347,18 @@ echo "✅ Launched EC2 instance: ${INSTANCE_ID}"
 
 # Wait for instance to be running
 echo "⏳ Waiting for instance to be running..."
-aws ec2 wait instance-running --instance-ids ${INSTANCE_ID}
+aws ec2 wait instance-running --profile ${PROFILE} --instance-ids ${INSTANCE_ID}
 PUBLIC_IP=$(aws ec2 describe-instances --instance-ids ${INSTANCE_ID} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
 
 # Allocate Elastic IP
 echo "🌐 Allocating Elastic IP..."
-ALLOCATION_ID=$(aws ec2 allocate-address --domain vpc --query 'AllocationId' --output text)
-ELASTIC_IP=$(aws ec2 describe-addresses --allocation-ids ${ALLOCATION_ID} --query 'Addresses[0].PublicIp' --output text)
+ALLOCATION_ID=$(aws ec2 allocate-address --profile ${PROFILE} --domain vpc --query 'AllocationId' --output text)
+ELASTIC_IP=$(aws ec2 describe-addresses --profile ${PROFILE} --allocation-ids ${ALLOCATION_ID} --query 'Addresses[0].PublicIp' --output text)
 echo "✅ Elastic IP allocated: ${ELASTIC_IP}"
 
 # Associate Elastic IP with instance
 echo "🔗 Associating Elastic IP with instance..."
-aws ec2 associate-address --instance-id ${INSTANCE_ID} --allocation-id ${ALLOCATION_ID} >/dev/null 2>&1
+aws ec2 associate-address --profile ${PROFILE} --instance-id ${INSTANCE_ID} --allocation-id ${ALLOCATION_ID} >/dev/null 2>&1
 echo "✅ Elastic IP associated"
 
 # Create Route53 record
@@ -371,6 +384,7 @@ if [ ! -z "${HOSTED_ZONE_ID}" ] && [ ! -z "${DOMAIN_NAME}" ]; then
 }
 EOF
   aws route53 change-resource-record-sets \
+    --profile ${PROFILE} \
     --hosted-zone-id ${HOSTED_ZONE_ID} \
     --change-batch file:///tmp/route53-change.json >/dev/null 2>&1
   echo "✅ Route53 record created: ${DOMAIN_NAME} -> ${ELASTIC_IP}"

@@ -1,0 +1,50 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "S3CredentialsAccess",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3-object-lambda:GetObject"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/Environment": "DEV",
+                    "aws:RequestedRegion": ["us-east-1", "ap-northeast-3"]
+                }
+            }
+        },
+        {
+            "Sid": "EC2CredentialsAccess",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:Get*",
+                "ec2:List"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/Environment": "DEV",
+                    "aws:RequestedRegion": ["us-east-1", "ap-northeast-3"]
+                }
+            }
+        },
+        {
+            "Sid": "ElasticCacheCredentialsAccess",
+            "Effect": "Allow",
+            "Action": [
+                "elasticache:Describe*"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/Environment": "DEV",
+                    "aws:RequestedRegion": ["us-east-1", "ap-northeast-3"]
+                }
+            }
+        }
+    ]
+}

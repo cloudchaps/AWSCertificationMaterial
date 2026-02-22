@@ -1,0 +1,37 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "SecretsManagerDbCredentialsAccess",
+            "Effect": "Allow",
+            "Action": [
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DescribeSecret"
+            ],
+            "Resource": "arn:aws:secretsmanager:*:*:secret:rds-db-credentials/*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/Environment": "DEV",
+                    "aws:RequestedRegion": ["us-east-1", "ap-northeast-3"]
+                }
+            }
+        },
+        {
+            "Sid": "RDSDataServiceAccess",
+            "Effect": "Allow",
+            "Action": [
+                "dbqms:DescribeFavoriteQueries",
+                "dbqms:GetQueryString",
+                "dbqms:DescribeQueryHistory",
+                "secretsmanager:ListSecrets"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceTag/Environment": "DEV",
+                    "aws:RequestedRegion": ["us-east-1", "ap-northeast-3"]
+                }
+            }
+        }
+    ]
+}

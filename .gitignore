@@ -60,6 +60,7 @@ terraform.rc
 *keys.json
 *key.txt
 *keys.txt
+*.secret*
 
 # Devbox and Venv environments restriction
 .devbox

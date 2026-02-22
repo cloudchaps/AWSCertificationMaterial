@@ -1,0 +1,226 @@
+---
+version: "3"
+env:
+  ### AWS Variables
+  DB_GROUP_POLICY: "CloudChaps_DB_Group_Policy"
+  CLOUDOPS_GROUP_POLICY: "CloudChaps_CLOUDOPS_Group_Policy"
+  IAM_GROUP_POLICY: "CloudChaps_IAM_Group_Policy"
+  DB_USERS_DENY_POLICY: "CloudChaps-DBAdmin-Deny-Policy"
+  CLOUDOPS_USERS_DENY_POLICY: "CloudChaps-DBAdmin-Deny-Policy"
+  DB_USERS_READ_POLICY: "CloudChaps-DBAdmin-Read-Policy"
+  CLOUDOPS_USERS_READ_POLICY: "CloudChaps-DBAdmin-Read-Policy"
+  DB_GROUP: "CloudChaps_DB_Group"
+  CLOUDOPS_GROUP: "CloudChaps_CLOUDOPS_Group"
+  IAM_GROUP: "CloudChaps_IAM_Group"
+  DB_USERS: "CloudChaps-DBAdmin CloudChaps-DBDeny CloudChaps-DBDelete-ReadOnly"
+  CLOUDOPS_USERS: "CloudChaps-CloudOps-Admin CloudChaps-CloudOps-Deny CloudChaps-CloudOps-ReadOnly"
+  IAM_USERS: "CloudChaps-IAM-Admin CloudChaps-IAM-Deny CloudChaps-IAM-ReadOnly"
+  CREDENTIALS_PROFILE: "default cloudops-deny db-admin db-deny db-list"
+  #### KMS
+  KMS_KEY_ALIAS: "alias/CloudChaps-Database-Paskey"
+
+tasks:
+####### Create Organization Security Groups using Conditions #######
+  AWS:01-Create-IAM-Groups:
+    desc: Create Security Groups using the least privilege principle and policy conditions
+    cmds: 
+      - cmd: |
+          gum style "$(cat <<EOF
+          🚨🚨🚨 NOTE: Exposing such credentials or store them in any control version system platform is extremly risky and can lead to potential 
+          monetary charges in your cloud platform due to the credentials being used for any kind of tasks in your account. 🚨🚨🚨
+          EOF
+          )"
+        silent: true
+      - aws iam create-group --group-name ${DB_GROUP} >> ~/tmp/awslogs
+      - aws iam create-group --group-name ${CLOUDOPS_GROUP} >> ~/tmp/awslogs
+      - aws iam create-group --group-name ${IAM_GROUP} >> ~/tmp/awslogs
+      - aws iam put-group-policy --group-name ${DB_GROUP} --policy-name ${DB_GROUP_POLICY} --policy-document file://./04-Policies/DB_Admin_Group.json >> ~/tmp/awslogs
+      - aws iam put-group-policy --group-name ${CLOUDOPS_GROUP} --policy-name ${CLOUDOPS_GROUP_POLICY} --policy-document file://./04-Policies/CLOUDOPS_Group.json >> ~/tmp/awslogs
+      - aws iam put-group-policy --group-name ${IAM_GROUP} --policy-name ${IAM_GROUP_POLICY} --policy-document file://./04-Policies/IAM_Admin_Group.json >> ~/tmp/awslogs
+      - cmd: |
+          for DB_USER in ${DB_USERS[@]}; do
+            aws iam create-user --user-name ${DB_USER} >> ~/tmp/awslogs
+            aws iam tag-user --user-name ${DB_USER} --tags 'Key=Environment,Value=DEV' >> ~/tmp/awslogs
+            aws iam add-user-to-group --user-name ${DB_USER} --group-name ${DB_GROUP} >> ~/tmp/awslogs
+          done
+      - cmd: |
+          for CLOUDOPS_USER in ${CLOUDOPS_USERS[@]}; do
+            aws iam create-user --user-name ${CLOUDOPS_USER} >> ~/tmp/awslogs
+            aws iam tag-user --user-name ${CLOUDOPS_USER} --tags 'Key=Environment,Value=DEV' >> ~/tmp/awslogs
+            aws iam add-user-to-group --user-name ${CLOUDOPS_USER} --group-name ${CLOUDOPS_GROUP} >> ~/tmp/awslogs
+          done
+      - cmd: |
+          for IAM_USER in ${IAM_USERS[@]}; do
+            aws iam create-user --user-name ${IAM_USER} >> ~/tmp/awslogs
+            aws iam tag-user --user-name ${IAM_USER} --tags 'Key=Environment,Value=DEV' >> ~/tmp/awslogs
+            aws iam add-user-to-group --user-name ${IAM_USER} --group-name ${IAM_GROUP} >> ~/tmp/awslogs
+          done
+      - cmd: |
+          DB_USERS_ARRAY=(${DB_USERS})
+          aws iam put-user-policy --user-name ${DB_USERS_ARRAY[1]} --policy-name ${DB_USERS_DENY_POLICY} --policy-document file://./04-Policies/DB_Admin_User_Deny.json
+          aws iam put-user-policy --user-name ${DB_USERS_ARRAY[2]} --policy-name ${DB_USERS_READ_POLICY} --policy-document file://./04-Policies/DB_Admin_User_ReadOnly.json >> ~/tmp/awslogs
+          aws iam create-access-key --user-name ${DB_USERS_ARRAY[0]} > ./06-AccessKeys/${DB_USERS_ARRAY[0]}-key.json
+          aws iam create-access-key --user-name ${DB_USERS_ARRAY[1]} > ./06-AccessKeys/${DB_USERS_ARRAY[1]}-key.json
+          aws iam create-access-key --user-name ${DB_USERS_ARRAY[2]} > ./06-AccessKeys/${DB_USERS_ARRAY[2]}-key.json
+      - cmd: |
+          CLOUDOPS_USERS_ARRAY=(${CLOUDOPS_USERS})
+          aws iam put-user-policy --user-name ${CLOUDOPS_USERS_ARRAY[1]} --policy-name ${CLOUDOPS_USERS_DENY_POLICY} --policy-document file://./04-Policies/CLOUDOPS_USER_Deny.json >> ~/tmp/awslogs
+          aws iam put-user-policy --user-name ${CLOUDOPS_USERS_ARRAY[2]} --policy-name ${CLOUDOPS_USERS_READ_POLICY} --policy-document file://./04-Policies/CLOUDOPS_USER_ReadOnly.json >> ~/tmp/awslogs
+          aws iam create-access-key --user-name ${CLOUDOPS_USERS_ARRAY[0]} > ./06-AccessKeys/${CLOUDOPS_USERS_ARRAY[0]}-key.json
+          aws iam create-access-key --user-name ${CLOUDOPS_USERS_ARRAY[1]} > ./06-AccessKeys/${CLOUDOPS_USERS_ARRAY[1]}-key.json
+          aws iam add-user-to-group --user-name ${CLOUDOPS_USERS_ARRAY[0]} --group-name ${DB_GROUP}
+          aws iam add-user-to-group --user-name ${CLOUDOPS_USERS_ARRAY[0]} --group-name ${IAM_GROUP}
+
+  AWS:02-Authenticate-IAM-Users:
+    desc: Authenticate as each IAM User by copyng access keys to the ~/.aws/credentials file
+    cmds: 
+      - cmd: |
+          CLOUDOPS_USERS_ARRAY=(${CLOUDOPS_USERS})
+          DB_USERS_ARRAY=(${DB_USERS})
+          CREDENTIALS_PROFILE_ARRAY=(${CREDENTIALS_PROFILE})
+          ./01-Scripts/01-GenerateIAMProfiles.sh "${CLOUDOPS_USERS_ARRAY[0]}" "${CREDENTIALS_PROFILE_ARRAY[0]}"
+          ./01-Scripts/01-GenerateIAMProfiles.sh "${CLOUDOPS_USERS_ARRAY[1]}" "${CREDENTIALS_PROFILE_ARRAY[1]}"
+          ./01-Scripts/01-GenerateIAMProfiles.sh "${DB_USERS_ARRAY[0]}" "${CREDENTIALS_PROFILE_ARRAY[2]}"
+          ./01-Scripts/01-GenerateIAMProfiles.sh "${DB_USERS_ARRAY[1]}" "${CREDENTIALS_PROFILE_ARRAY[3]}"
+          ./01-Scripts/01-GenerateIAMProfiles.sh "${DB_USERS_ARRAY[2]}" "${CREDENTIALS_PROFILE_ARRAY[4]}"
+
+  AWS:03-Verify-IAM-Profiles-Access:
+    desc: Verify access policies using the profiles authenticated in AWS:02-Authenticate-IAM-Users step.
+    cmds: 
+      - cmd: |
+          set +e
+          for CREDENTIALS in ${CREDENTIALS_PROFILE[@]}; do
+            aws iam list-users --profile "${CREDENTIALS}" >/dev/null >2>&1
+            STATUS=$?
+            if [ "$STATUS" -eq 0 ]; then
+              echo "✅ -- ${CREDENTIALS} Profile list users succeed"
+            else
+              echo "❌ -- ${CREDENTIALS} has no IAM ListUsers permission"
+            fi
+          done
+          set -e
+
+  AWS:04-Verify-RDS-Profiles-Access:
+    desc: Verify access policies using the profiles authenticated in AWS:02-Authenticate-IAM-Users step.
+    cmds: 
+      - cmd: |
+          set +e
+          for CREDENTIALS in ${CREDENTIALS_PROFILE[@]}; do
+            aws rds describe-db-instances --profile "${CREDENTIALS}" >/dev/null >2>&1
+            STATUS=$?
+            if [ "$STATUS" -eq 0 ]; then
+              echo "✅ -- ${CREDENTIALS} Profile describe db instances succeed"
+            else
+              echo "❌ -- ${CREDENTIALS} has no db describe instances permission"
+            fi
+          done
+          set -e
+  
+  AWS:05-Verify-EC2-Profiles-Access:
+    desc: Verify access policies using the profiles authenticated in AWS:02-Authenticate-IAM-Users step.
+    cmds: 
+      - cmd: |
+          set +e
+          for CREDENTIALS in ${CREDENTIALS_PROFILE[@]}; do
+            aws ec2 describe-instances --profile "${CREDENTIALS}" >/dev/null >2>&1
+            STATUS=$?
+            if [ "$STATUS" -eq 0 ]; then
+              echo "✅ -- ${CREDENTIALS} Profile describe ec2 instances succeed"
+            else
+              echo "❌ -- ${CREDENTIALS} has no ec2 describe instances permission"
+            fi
+          done
+          set -e
+
+  AWS:06-Create-KMS-Key:
+    desc: Create KMS key to encrypt cruddb user and password file.
+    cmds: 
+      - cmd: |
+          CREDENTIALS_PROFILE_ARRAY=(${CREDENTIALS_PROFILE})
+          aws kms create-key --profile "${CREDENTIALS_PROFILE_ARRAY[0]}" --description "CloudChaps KMS Key for Secrets Encryption" > ./09-KMS/cloudchaps-key.json
+          aws kms create-alias --profile "${CREDENTIALS_PROFILE_ARRAY[0]}" --alias-name ${KMS_KEY_ALIAS} --target-key-id $(jq -r '.KeyMetadata.KeyId' ./09-KMS/cloudchaps-key.json)
+
+  AWS:07-Encrypt-RDS-files:
+    desc: Encrypt cruddb user and password file.
+    cmds: 
+      - cmd: |
+          CREDENTIALS_PROFILE_ARRAY=(${CREDENTIALS_PROFILE})
+          aws kms encrypt --profile ${CREDENTIALS_PROFILE_ARRAY[0]} --key-id ${KMS_KEY_ALIAS} --plaintext fileb://./07-CRUDService/DB_Credentials.json --query CiphertextBlob --output text > ./07-CRUDService/01-cruddb.secret.encrypted
+          cat ./07-CRUDService/01-cruddb.secret.encrypted | base64 --decode > ./07-CRUDService/02-cruddb.secret.decoded
+          aws kms decrypt --profile ${CREDENTIALS_PROFILE_ARRAY[0]} --key-id ${KMS_KEY_ALIAS} --ciphertext-blob fileb://./07-CRUDService/02-cruddb.secret.decoded --output text --query Plaintext > ./07-CRUDService/03-cruddb.secret.decrypted
+          cat ./07-CRUDService/03-cruddb.secret.decrypted | base64 --decode > ./07-CRUDService/04-cruddb.secret.json
+
+  ####### DEPLOY SAMPLE CRUD SERVICE #######
+  AWS:08-Deploy-intermediate-CRUD-Service:
+    desc: Deploy intermediate CRUD Repo
+    cmds:
+      - cmd: |
+          CREDENTIALS_PROFILE_ARRAY=(${CREDENTIALS_PROFILE})
+          SECURITYGROUP=$(
+            aws kms decrypt \
+              --profile "${CREDENTIALS_PROFILE_ARRAY[0]}" \
+              --key-id "${KMS_KEY_ALIAS}" \
+              --ciphertext-blob fileb://./07-CRUDService/02-cruddb.secret.decoded \
+              --query Plaintext \
+              --output text \
+          | base64 --decode \
+          | jq -r '.cloudchapsdbdetails.securityGroup'
+          )
+          DB_NAME=$(
+            aws kms decrypt \
+              --profile "${CREDENTIALS_PROFILE_ARRAY[0]}" \
+              --key-id "${KMS_KEY_ALIAS}" \
+              --ciphertext-blob fileb://./07-CRUDService/02-cruddb.secret.decoded \
+              --query Plaintext \
+              --output text \
+          | base64 --decode \
+          | jq -r '.cloudchapsdbdetails.dbname'
+          )
+          DB_USER=$(
+            aws kms decrypt \
+              --profile "${CREDENTIALS_PROFILE_ARRAY[0]}" \
+              --key-id "${KMS_KEY_ALIAS}" \
+              --ciphertext-blob fileb://./07-CRUDService/02-cruddb.secret.decoded \
+              --query Plaintext \
+              --output text \
+          | base64 --decode \
+          | jq -r '.cloudchapsdbdetails.user'
+          )
+          DB_PASSWORD=$(
+            aws kms decrypt \
+              --profile "${CREDENTIALS_PROFILE_ARRAY[0]}" \
+              --key-id "${KMS_KEY_ALIAS}" \
+              --ciphertext-blob fileb://./07-CRUDService/02-cruddb.secret.decoded \
+              --query Plaintext \
+              --output text \
+          | base64 --decode \
+          | jq -r '.cloudchapsdbdetails.password'
+          )
+          HOSTED_ZONE_ID=$(
+            aws kms decrypt \
+              --profile "${CREDENTIALS_PROFILE_ARRAY[0]}" \
+              --key-id "${KMS_KEY_ALIAS}" \
+              --ciphertext-blob fileb://./07-CRUDService/02-cruddb.secret.decoded \
+              --query Plaintext \
+              --output text \
+          | base64 --decode \
+          | jq -r '.cloudchapsdbdetails.hostedZone'
+          )
+          DOMAIN_NAME=$(
+            aws kms decrypt \
+              --profile "${CREDENTIALS_PROFILE_ARRAY[0]}" \
+              --key-id "${KMS_KEY_ALIAS}" \
+              --ciphertext-blob fileb://./07-CRUDService/02-cruddb.secret.decoded \
+              --query Plaintext \
+              --output text \
+          | base64 --decode \
+          | jq -r '.cloudchapsdbdetails.domainName'
+          )
+          echo "SECURITY GROUP is: '${SECURITYGROUP}'"
+          echo "DB NAME is: '${DB_NAME}'"
+          echo "DB USER is: '${DB_USER}'"
+          echo "DB Password is: '${DB_PASSWORD}'"
+          echo "HOSTED ZONE ID is: '${HOSTED_ZONE_ID}'"
+          echo "DOMAIN NAME is: '${DOMAIN_NAME}'"
+          ./01-Scripts/02-DeployCRUDAndMemcache.sh "${SECURITYGROUP}" "${DB_NAME}" "${DB_USER}" "${DB_PASSWORD}" "${HOSTED_ZONE_ID}" "${DOMAIN_NAME}" "${CREDENTIALS_PROFILE_ARRAY[0]}"
+          
